@@ -1,64 +1,66 @@
-import hashlib, json, sys
+import hashlib
+import json
+import sys
 import random
 
+
 def hashMe(msg=""):
-    
-    if type(msg)!=str:
-        msg = json.dumps(msg,sort_keys=True) 
-        
-    if sys.version_info.major == 2:
-        return unicode(hashlib.sha256(msg).hexdigest(),'utf-8')
-    else:
-        return hashlib.sha256(str(msg).encode('utf-8')).hexdigest()
+    if isinstance(msg, str):
+        msg = msg.encode('utf-8')
+    elif not isinstance(msg, bytes):
+        msg = json.dumps(msg, sort_keys=True).encode('utf-8')
 
-random.seed(0)
+    return hashlib.sha256(msg).hexdigest()
 
-def makeTransaction(maxValue=3):
-    # ele vai criar uma transação valida no valor de 1
-    sign      = int(random.getrandbits(1))*2 - 1   # randomicamente ele vai escolher 1 ou -1
-    amount    = random.randint(1,maxValue)
-    alicePays = sign * amount
-    bobPays   = -1 * alicePays
 
-    return {u'Alice':alicePays,u'Bob':bobPays}
+def makeTransaction(max_value=3):
+    sign = random.choice([-1, 1])   # escolhe randomicamente 1 ou -1
+    amount = random.randint(1, max_value)
+    alice_pays = sign * amount
+    bob_pays = -1 * alice_pays
 
-txnBuffer = [makeTransaction() for i in range(30)]
+    return {'Alice': alice_pays, 'Bob': bob_pays}
+
+
+txn_buffer = [makeTransaction() for _ in range(30)]
+
 
 def updateState(txn, state):
+    state = state.copy()
 
-    # NOTE: isso não é uma transação valida
-    
-    # se a transação for invalida, então ele atualiza o state
-    state = state.copy() # show.
     for key in txn:
-        if key in state.keys():
+        if key in state:
             state[key] += txn[key]
         else:
             state[key] = txn[key]
+
     return state
 
-def isValidTxn(txn,state):
-    if sum(txn.values()) is not 0:
+
+def is_valid_txn(txn, state):
+    if sum(txn.values()) != 0:
         return False
-    
-    for key in txn.keys():
-        if key in state.keys(): 
-            acctBalance = state[key]
+
+    for key in txn:
+        if key in state:
+            account_balance = state[key]
         else:
-            acctBalance = 0
-        if (acctBalance + txn[key]) < 0:
+            account_balance = 0
+
+        if (account_balance + txn[key]) < 0:
             return False
-    
+
     return True
 
-def makeBlock(txns,chain):
-    parentBlock = chain[-1]
-    parentHash  = parentBlock[u'hash']
-    blockNumber = parentBlock[u'contents'][u'blockNumber'] + 1
-    txnCount    = len(txns)
-    blockContents = {u'blockNumber':blockNumber,u'parentHash':parentHash,
-                     u'txnCount':len(txns),'txns':txns}
-    blockHash = hashMe( blockContents )
-    block = {u'hash':blockHash,u'contents':blockContents}
-    
+
+def makeBlock(txns, chain):
+    parent_block = chain[-1]
+    parent_hash = parent_block['hash']
+    block_number = parent_block['contents']['blockNumber'] + 1
+    txn_count = len(txns)
+    block_contents = {'blockNumber': block_number, 'parentHash': parent_hash,
+                      'txnCount': len(txns), 'txns': txns}
+    block_hash = hashMe(block_contents)
+    block = {'hash': block_hash, 'contents': block_contents}
+
     return block
